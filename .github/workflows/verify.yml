@@ -1,0 +1,37 @@
+name: Verify site
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required files exist
+        run: |
+          for f in index.html styles.css script.js; do
+            if [ ! -f "$f" ]; then
+              echo "Missing required file: $f" >&2
+              exit 1
+            fi
+          done
+          echo "All site files present."
+
+      - name: Validate HTML is non-empty and parseable
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          import sys, pathlib
+          html = pathlib.Path('index.html').read_text(encoding='utf-8')
+          if len(html) < 200:
+              print("index.html looks too small", file=sys.stderr); sys.exit(1)
+          class P(HTMLParser):
+              def error(self, m): raise RuntimeError(m)
+          P().feed(html)
+          print("HTML parsed OK,", len(html), "bytes")
+          PY
